@@ -30,7 +30,7 @@ class Car:
             dx, dy = math.sin(ray_angle), -math.cos(ray_angle)
             for dist in range(0, SENSOR_RANGE, 5):
                 end = (self.x + dx*dist, self.y + dy*dist)
-                if any(wall.collidepoint(end) for wall in walls):
+                if any(pygame.Rect(wall).collidepoint(end) for wall in walls):
                     readings.append(dist)
                     break
             else:
