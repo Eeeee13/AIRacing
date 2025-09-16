@@ -1,7 +1,5 @@
 # config.py
-# базовые параметры (дублирую только важные, остальное как у тебя)
-WIDTH, HEIGHT = 800, 600
-ROAD_WIDTH = 200
+ROAD_WIDTH = 100
 FPS = 60
 
 CAR_SPEED = 5
@@ -9,8 +7,21 @@ SENSOR_RANGE = 150
 NUM_SENSORS = 5
 
 # дискретизация угла оставляем, но сеть будет работать с непрерывными сенсорами
-ACTIONS = [-10, 0, 10]  # повороты (в градусах)
+ACTIONS = [0, 1, 2, 3, 4]  
+# 0=ничего, 1=газ, 2=тормоз, 3=влево+газ, 4=вправо+газ
+
 ACTION_SPACE = len(ACTIONS)
+
+WIDTH, HEIGHT = 800, 600
+SENSOR_COUNT = 8
+MAX_SPEED = 6.0
+ACCELERATION = 0.2
+FRICTION = 0.05
+TURN_SPEED = 4.0
+
+STATE_DIM = SENSOR_COUNT + 3   # сенсоры + скорость + ускорение + угол руля
+ACTION_DIM = 2                 # steer, throttle
+
 
 # DQN-параметры
 DQN_BATCH_SIZE = 64
