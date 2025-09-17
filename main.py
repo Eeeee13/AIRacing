@@ -2,8 +2,9 @@ import pygame
 import sys
 
 pygame.init()
-screen = pygame.display.set_mode((1000, 800))
+screen = pygame.display.set_mode((1670, 1000))
 pygame.display.set_caption("Гонки на Python")
+background = pygame.image.load('road.png')
 
 
 class Car:
@@ -40,7 +41,7 @@ while running:
     if keys[pygame.K_DOWN]:
         car.move(0, car.speed)
 
-    screen.fill((0, 0, 0))
+    screen.blit(background, (0, 0))
     car.draw(screen)
     pygame.display.flip()
 
