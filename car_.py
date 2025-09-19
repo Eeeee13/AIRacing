@@ -26,8 +26,8 @@ class Car:
         
         # Настройки управления
         self.steering_angle = 0  # Текущий угол поворота руля
-        self.max_steering = 40   # Максимальный угол поворота (градусы)
-        self.steering_speed = 2  # Скорость поворота руля
+        self.max_steering = 60   # Максимальный угол поворота (градусы)
+        self.steering_speed = 10  # Скорость поворота руля
         self.wheel_base = 50     # База колес (расстояние между осями)
         
         space.add(self.body, self.shape)

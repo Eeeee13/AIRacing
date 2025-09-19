@@ -23,6 +23,7 @@ while running:
         if event.type == pygame.QUIT:
             running = False
     
+    
     keys = pygame.key.get_pressed()
     
     # Обновление машины
@@ -32,7 +33,7 @@ while running:
     space.step(1/60)
     
     # Отрисовка
-    screen.fill((0, 0, 0))
+    screen.blit(background, (0, 0))
     car.draw(screen)
     car.draw_steering_info(screen, font)  # Дебаг информация
     
