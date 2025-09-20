@@ -4,6 +4,7 @@ class Track:
     def __init__(self, image_path):
         self.image = pygame.image.load(image_path).convert_alpha()
         self.road_color = (120,91,100)  # цвет дороги
+        self.rect = self.image.get_rect()
         self.mask = (0,0,0)
         
     def check_collision(self, car_mask, car_position):

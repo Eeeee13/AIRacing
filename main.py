@@ -37,6 +37,9 @@ while running:
     # Обновление физики
     space.step(1/60)
 
+    if track.check_collision(car.mask, (car.rect.x, car.rect.y)):
+        car.reset_to_start()
+
    
     # Отрисовка
     

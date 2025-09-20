@@ -10,6 +10,7 @@ class Car:
         self.image = self.original_image
         self.rect = self.image.get_rect(center=(x, y))
         self.angle = 0
+        self.start_position = (1500, 850)
         
         # Pymunk часть
         mass = 50
