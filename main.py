@@ -37,6 +37,8 @@ while running:
     # Обновление физики
     space.step(1/60)
 
+    car.cast_rays(track)
+
     if track.check_collision(car.mask, (car.rect.x, car.rect.y)):
         car.reset_to_start()
 
@@ -46,6 +48,8 @@ while running:
     screen.blit(background, (0, 0))
     car.draw(screen)
     car.draw_steering_info(screen, font)  # Дебаг информация
+
+    car.draw_rays(screen, track)
     
     pygame.display.flip()
     clock.tick(60)

@@ -34,6 +34,12 @@ class Car:
         self.max_steering = 60   # Максимальный угол поворота (градусы)
         self.steering_speed = 10  # Скорость поворота руля
         self.wheel_base = 50     # База колес (расстояние между осями)
+
+
+        self.ray_count = 6  # Количество лучей
+        self.ray_angles = [-90, -45, 0, 45, 90, 180]  # Углы лучей относительно направления машины
+        self.ray_distances = [0] * self.ray_count  # Расстояния до препятствий
+
         
         space.add(self.body, self.shape)
 
@@ -231,3 +237,66 @@ class Car:
         steering_text = font.render(f"Steering: {self.steering_angle:.1f}°", True, (255, 255, 255))
         surface.blit(speed_text, (10, 10))
         surface.blit(steering_text, (10, 40))
+
+
+
+    def cast_rays(self, track):
+        """Выпускает лучи и измеряет расстояние до границ трассы"""
+        center = self.rect.center
+        angle_rad = math.radians(self.angle)
+        
+        for i, ray_angle in enumerate(self.ray_angles):
+            # Рассчитываем направление луча
+            ray_dir = [
+                math.sin(angle_rad + math.radians(ray_angle)),
+                -math.cos(angle_rad + math.radians(ray_angle))
+            ]
+            
+            # Выпускаем луч шаг за шагом
+            max_distance = 300  # Максимальная длина луча
+            distance = 0
+            hit = False
+            
+            for step in range(1, max_distance):
+                # Текущая позиция на луче
+                pos = [
+                    center[0] + ray_dir[0] * step,
+                    center[1] + ray_dir[1] * step
+                ]
+                
+                # Проверяем, находится ли позиция в пределах трассы
+                if (0 <= pos[0] < track.rect.width and 
+                    0 <= pos[1] < track.rect.height):
+                    
+                    # Проверяем столкновение с границей
+                    if track.mask.get_at((int(pos[0]), int(pos[1]))):
+                        distance = step
+                        hit = True
+                        break
+                else:
+                    break
+            
+            self.ray_distances[i] = distance if hit else max_distance
+
+
+    def draw_rays(self, surface, track):
+        """Отрисовывает лучи для визуализации"""
+        center = self.rect.center
+        angle_rad = math.radians(self.angle)
+        
+        for i, ray_angle in enumerate(self.ray_angles):
+            if self.ray_distances[i] > 0:
+                # Рассчитываем направление луча
+                ray_dir = [
+                    math.sin(angle_rad + math.radians(ray_angle)),
+                    -math.cos(angle_rad + math.radians(ray_angle))
+                ]
+                
+                # Конечная точка луча
+                end_pos = [
+                    center[0] + ray_dir[0] * self.ray_distances[i],
+                    center[1] + ray_dir[1] * self.ray_distances[i]
+                ]
+                
+                # Рисуем луч
+                pygame.draw.line(surface, (255, 0, 0), center, end_pos, 1)
