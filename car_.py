@@ -6,7 +6,7 @@ import numpy as np
 class Car:
     def __init__(self, x, y, space):
         # Pygame часть
-        self.original_image = pygame.image.load('red_car.png')
+        self.original_image = pygame.image.load('blue_car.png')
         self.image = self.original_image
         self.rect = self.image.get_rect(center=(x, y))
         self.angle = 0
@@ -23,6 +23,10 @@ class Car:
         self.shape = pymunk.Poly.create_box(self.body, size)
         self.shape.elasticity = 0.2
         self.shape.friction = 0.9
+
+        self.original_mask = pygame.mask.from_surface(self.original_image)
+        self.mask = self.original_mask
+        self.angle = 0
         
         # Настройки управления
         self.steering_angle = 0  # Текущий угол поворота руля
@@ -31,6 +35,36 @@ class Car:
         self.wheel_base = 50     # База колес (расстояние между осями)
         
         space.add(self.body, self.shape)
+
+    def rotate(self, angle):
+        self.angle = angle
+        self.image = pygame.transform.rotate(self.original_image, -self.angle)
+        
+        self.mask = pygame.mask.from_surface(self.image)
+        
+        old_center = self.rect.center
+        self.rect = self.image.get_rect()
+        self.rect.center = old_center
+
+    def reset_to_start(self):
+        """Перемещает машину в стартовую позицию и сбрасывает состояние"""
+        # Сбрасываем физическое тело
+        self.body.position = self.start_position
+        self.body.velocity = (0, 0)
+        self.body.angular_velocity = 0
+        self.body.angle = 0
+        
+        # Сбрасываем графику
+        self.angle = 0
+        self.image = self.original_image
+        self.rect = self.image.get_rect(center=self.start_position)
+        
+        # Сбрасываем управление
+        self.steering_angle = 0
+        
+        # Обновляем маску
+        self.mask = pygame.mask.from_surface(self.image)
+
     
     def get_speed(self):
         """Получить текущую скорость"""
@@ -110,7 +144,7 @@ class Car:
     def apply_engine_force(self, throttle):
         """Применение силы двигателя"""
         forward_vec = self.get_forward_vec()
-        force = 7000 * throttle
+        force = 9000 * throttle
         self.body.apply_force_at_local_point((0, -force), (0, -30))
 
     def apply_friction(self):
@@ -184,6 +218,10 @@ class Car:
         self.rect.center = (int(self.body.position.x), int(self.body.position.y))
         self.angle = math.degrees(self.body.angle)
         self.image = pygame.transform.rotate(self.original_image, -self.angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
+
+        # ОБНОВЛЯЕМ МАСКУ
+        self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect(center=self.rect.center)
     
     def draw_steering_info(self, surface, font):

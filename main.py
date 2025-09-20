@@ -5,6 +5,8 @@ import pymunk
 import pymunk.pygame_util
 import math
 from car_ import Car
+from enviroment import Track
+
 pygame.init()
 space = pymunk.Space()
 space.gravity = (0, 0)
@@ -14,6 +16,9 @@ clock = pygame.time.Clock()
 pygame.display.set_caption("Гонки на Python")
 background = pygame.image.load('road.png')
 font = pygame.font.Font(None, 36)
+track = Track('road.png')
+track.create_mask_from_color(background)
+# track_mask = track.create_mask_from_color(background)
 
 car = Car(400, 300, space)
 
@@ -31,8 +36,10 @@ while running:
     
     # Обновление физики
     space.step(1/60)
-    
+
+   
     # Отрисовка
+    
     screen.blit(background, (0, 0))
     car.draw(screen)
     car.draw_steering_info(screen, font)  # Дебаг информация
