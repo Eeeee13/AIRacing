@@ -320,11 +320,11 @@ class Car:
     def get_reward(self, crashed=False):
         """Вычисляет награду для агента"""
         if crashed:
-            return -1.0  # Штраф за столкновение
+            return -500.0  # Штраф за столкновение
         
         # Награда за скорость 
         velocity = math.sqrt(self.body.velocity.x**2 + self.body.velocity.y**2)
-        speed_reward = velocity * 0.01  # Коэффициент подбери экспериментально
+        speed_reward = velocity * 0.001  # Коэффициент подбери экспериментально
         
         # Награда за прохождение чекпоинтов
         checkpoint_reward = 0
@@ -335,21 +335,21 @@ class Car:
         distance_to_checkpoint = math.sqrt((current_pos.x - next_checkpoint[0])**2 + 
                                         (current_pos.y - next_checkpoint[1])**2)
         
-        if distance_to_checkpoint < 100:  # Если близко к чекпоинту
+        if distance_to_checkpoint < 10:  # Если близко к чекпоинту
             self.last_checkpoint += 1
-            checkpoint_reward = 10.0  # Большая награда за чекпоинт
+            checkpoint_reward = 100.0  # Большая награда за чекпоинт
             
             # Если прошли полный круг
             if self.last_checkpoint % len(self.checkpoint_positions) == 0:
                 lap_time = pygame.time.get_ticks() - self.lap_start_time
                 if lap_time < self.best_lap_time:
                     self.best_lap_time = lap_time
-                    checkpoint_reward += 50.0  # Бонус за лучшее время
+                    checkpoint_reward += 500.0  # Бонус за лучшее время
                 self.lap_start_time = pygame.time.get_ticks()
         
         # Штраф за слишком медленное движение
         if velocity < 1.0:
-            speed_reward -= 0.1
+            speed_reward -= 0.2
         
         return speed_reward + checkpoint_reward
 
