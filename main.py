@@ -24,12 +24,12 @@ track.create_mask_from_color(background)
 car = Car(400, 300, space)
 
 # Инициализация PPO агента
-agent = PPOAgent(state_size=6, action_size=2, lr=3e-4)
+agent = PPOAgent(state_size=6, action_size=2, lr=1e-4)
 
 # Параметры тренировки
 TRAINING_MODE = True  # Переключатель: True для тренировки, False для игры человеком
 RENDER_TRAINING = True  # Показывать ли визуализацию во время тренировки
-UPDATE_FREQUENCY = 1000  # Частота обновления агента (каждые N шагов)
+UPDATE_FREQUENCY = 5000  # Частота обновления агента (каждые N шагов)
 MAX_EPISODES = 1000
 MAX_STEPS_PER_EPISODE = 2000
 

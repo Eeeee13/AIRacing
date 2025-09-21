@@ -6,23 +6,27 @@ import numpy as np
 from torch.distributions import Normal
 
 class PPONetwork(nn.Module):
-    def __init__(self, state_size=6, action_size=2, hidden_size=128):
+    def __init__(self, state_size=6, action_size=2, hidden_size=256):
         super(PPONetwork, self).__init__()
         
         # Общие слои
         self.shared_fc1 = nn.Linear(state_size, hidden_size)
         self.shared_fc2 = nn.Linear(hidden_size, hidden_size)
+        self.shared_fc3 = nn.Linear(hidden_size, hidden_size)
+        self.shared_fc4 = nn.Linear(hidden_size, hidden_size)
         
-        # политика
+        # Actor (политика) - выдает среднее и стандартное отклонение для непрерывных действий
         self.actor_mean = nn.Linear(hidden_size, action_size)
         self.actor_std = nn.Parameter(torch.ones(action_size) * 0.5)
         
-        # Critic функция ценности
+        # Critic (функция ценности)
         self.critic = nn.Linear(hidden_size, 1)
         
     def forward(self, state):
         x = F.relu(self.shared_fc1(state))
         x = F.relu(self.shared_fc2(x))
+        x = F.relu(self.shared_fc3(x))
+        x = F.relu(self.shared_fc4(x))
         
         # Actor выход
         action_mean = torch.tanh(self.actor_mean(x))  # [-1, 1] диапазон
@@ -35,7 +39,7 @@ class PPONetwork(nn.Module):
 
 class PPOAgent:
     def __init__(self, state_size=6, action_size=2, lr=3e-4, gamma=0.99, eps_clip=0.2, 
-                 k_epochs=4, entropy_coef=0.01):
+                 k_epochs=4, entropy_coef=0.1):
         
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.network = PPONetwork(state_size, action_size).to(self.device)
@@ -67,16 +71,14 @@ class PPOAgent:
         log_prob = dist.log_prob(action).sum(dim=-1)
         
         # Преобразуем действия в нужный диапазон
-        # action[0] - газ/тормоз: [-1, 1] -> [-2, 1] (тормоз сильнее)
-        # action[1] - поворот: [-1, 1] -> [-60, 60] градусов
         processed_action = action.cpu().numpy()[0]
         
-        # Газ/тормоз: -1 до 1, где отрицательные значения - тормоз
-        throttle = processed_action[0]
-        if throttle < 0:
-            throttle *= 2  # Усиливаем торможение
+        # Газ/тормоз: только вперед и тормоз (БЕЗ заднего хода)
+        # Преобразуем [-1, 1] в [0, 1] для газа
+        throttle = (processed_action[0] + 1) / 2  # Теперь от 0 до 1
+        # 0 = нет газа, 1 = полный газ
         
-        # Поворот руля
+        # Поворот руля: [-1, 1] -> [-60, 60] градусов
         steering = processed_action[1] * 60  # [-60, 60] градусов
         
         return [throttle, steering], log_prob.cpu().numpy(), value.cpu().numpy()[0, 0]

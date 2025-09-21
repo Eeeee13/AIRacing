@@ -43,9 +43,8 @@ class Car:
 
         self.last_checkpoint = 0  # Последний пройденный чекпоинт
         self.checkpoint_positions = [  # Определи чекпоинты по трассе
-            (1500, 850),   # стартовая позиция
             (1500, 500),   
-            (1500, 200),  
+            (1430, 210),  
             (1000, 200),
             (300, 200),
             (600, 420),
@@ -86,6 +85,7 @@ class Car:
         
         # Обновляем маску
         self.mask = pygame.mask.from_surface(self.image)
+        self.last_checkpoint = 0
 
     
     def get_speed(self):
@@ -167,7 +167,11 @@ class Car:
         """Применение силы двигателя"""
         forward_vec = self.get_forward_vec()
         force = 9000 * throttle
-        self.body.apply_force_at_local_point((0, -force), (0, -30))
+        if self.get_speed() < 0:
+            # self.body.apply_force_at_local_point((0, -force), (0, -30))
+            pass
+        else:
+            self.body.apply_force_at_local_point((0, -force), (0, -30))
 
     def apply_friction(self):
         """Применение трения и сопротивления"""
@@ -320,11 +324,11 @@ class Car:
     def get_reward(self, crashed=False):
         """Вычисляет награду для агента"""
         if crashed:
-            return -500.0  # Штраф за столкновение
+            return -200.0  # Штраф за столкновение
         
         # Награда за скорость 
         velocity = math.sqrt(self.body.velocity.x**2 + self.body.velocity.y**2)
-        speed_reward = velocity * 0.001  # Коэффициент подбери экспериментально
+        speed_reward = velocity * 0.1  # Коэффициент подбери экспериментально
         
         # Награда за прохождение чекпоинтов
         checkpoint_reward = 0
@@ -335,7 +339,7 @@ class Car:
         distance_to_checkpoint = math.sqrt((current_pos.x - next_checkpoint[0])**2 + 
                                         (current_pos.y - next_checkpoint[1])**2)
         
-        if distance_to_checkpoint < 10:  # Если близко к чекпоинту
+        if distance_to_checkpoint < 100:  # Если близко к чекпоинту
             self.last_checkpoint += 1
             checkpoint_reward = 100.0  # Большая награда за чекпоинт
             
