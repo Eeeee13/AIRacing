@@ -21,6 +21,8 @@ track.create_mask_from_color(background)
 # track_mask = track.create_mask_from_color(background)
 
 car = Car(400, 300, space)
+total_reward = 0
+episode_reward = 0
 
 running = True
 while running:
@@ -40,7 +42,14 @@ while running:
     car.cast_rays(track)
 
     if track.check_collision(car.mask, (car.rect.x, car.rect.y)):
+        reward = car.get_reward(crashed=True)  # Штраф за столкновение
+        episode_reward += reward
         car.reset_to_start()
+        print(f"Столкновение! Награда за эпизод: {episode_reward}")
+        episode_reward = 0  # Сброс награды для нового эпизода
+    else:
+        reward = car.get_reward(crashed=False)  # Обычная награда
+        episode_reward += reward
 
    
     # Отрисовка

@@ -40,6 +40,21 @@ class Car:
         self.ray_angles = [-90, -45, 0, 45, 90, 180]  # Углы лучей относительно направления машины
         self.ray_distances = [0] * self.ray_count  # Расстояния до препятствий
 
+
+        self.last_checkpoint = 0  # Последний пройденный чекпоинт
+        self.checkpoint_positions = [  # Определи чекпоинты по трассе
+            (1500, 850),   # стартовая позиция
+            (1500, 500),   
+            (1500, 200),  
+            (1000, 200),
+            (300, 200),
+            (600, 420),
+            (600, 630),
+            (800, 860)
+        ]
+        self.lap_start_time = 0
+        self.best_lap_time = float('inf')
+
         
         space.add(self.body, self.shape)
 
@@ -300,3 +315,41 @@ class Car:
                 
                 # Рисуем луч
                 pygame.draw.line(surface, (255, 0, 0), center, end_pos, 1)
+
+
+    def get_reward(self, crashed=False):
+        """Вычисляет награду для агента"""
+        if crashed:
+            return -1.0  # Штраф за столкновение
+        
+        # Награда за скорость 
+        velocity = math.sqrt(self.body.velocity.x**2 + self.body.velocity.y**2)
+        speed_reward = velocity * 0.01  # Коэффициент подбери экспериментально
+        
+        # Награда за прохождение чекпоинтов
+        checkpoint_reward = 0
+        current_pos = self.body.position
+        
+        # Проверяем прохождение следующего чекпоинта
+        next_checkpoint = self.checkpoint_positions[self.last_checkpoint % len(self.checkpoint_positions)]
+        distance_to_checkpoint = math.sqrt((current_pos.x - next_checkpoint[0])**2 + 
+                                        (current_pos.y - next_checkpoint[1])**2)
+        
+        if distance_to_checkpoint < 100:  # Если близко к чекпоинту
+            self.last_checkpoint += 1
+            checkpoint_reward = 10.0  # Большая награда за чекпоинт
+            
+            # Если прошли полный круг
+            if self.last_checkpoint % len(self.checkpoint_positions) == 0:
+                lap_time = pygame.time.get_ticks() - self.lap_start_time
+                if lap_time < self.best_lap_time:
+                    self.best_lap_time = lap_time
+                    checkpoint_reward += 50.0  # Бонус за лучшее время
+                self.lap_start_time = pygame.time.get_ticks()
+        
+        # Штраф за слишком медленное движение
+        if velocity < 1.0:
+            speed_reward -= 0.1
+        
+        return speed_reward + checkpoint_reward
+
