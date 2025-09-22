@@ -24,14 +24,14 @@ track.create_mask_from_color(background)
 car = Car(400, 300, space)
 
 # Инициализация PPO агента
-agent = PPOAgent(state_size=6, action_size=2, lr=1e-4)
+agent = PPOAgent(state_size=10, action_size=2, lr=1e-4)
 
 # Параметры тренировки
 TRAINING_MODE = True  # Переключатель: True для тренировки, False для игры человеком
 RENDER_TRAINING = True  # Показывать ли визуализацию во время тренировки
-UPDATE_FREQUENCY = 5000  # Частота обновления агента (каждые N шагов)
+UPDATE_FREQUENCY = 10000  # Частота обновления агента (каждые N шагов)
 MAX_EPISODES = 1000
-MAX_STEPS_PER_EPISODE = 2000
+MAX_STEPS_PER_EPISODE = 10000
 
 # Статистика
 episode_rewards = []
@@ -89,7 +89,12 @@ while running and episode < MAX_EPISODES:
     
     # Получаем состояние (расстояния лучей)
     car.cast_rays(track)
-    state = normalize_ray_distances(car.ray_distances)
+    dist = normalize_ray_distances(car.ray_distances)
+    obs = car.get_observations(track)
+    
+    state= np.concatenate((obs,  dist) )
+    # print("state: ", state, "len: ", len(state))
+    # print("input:" , input, "len: " , len(input))
     
     if TRAINING_MODE:
         # Получаем действие от агента
@@ -110,6 +115,7 @@ while running and episode < MAX_EPISODES:
     # Проверяем столкновение и вычисляем награду
     crashed = track.check_collision(car.mask, (car.rect.x, car.rect.y))
     reward = car.get_reward(crashed=crashed)
+    # reward += car.compute_guided_reward()
     episode_reward += reward
     episode_steps += 1
     step_count += 1
@@ -130,7 +136,7 @@ while running and episode < MAX_EPISODES:
     if done:
         if TRAINING_MODE:
             episode_rewards.append(episode_reward)
-            print(f"Эпизод {episode}: Награда = {episode_reward:.2f}, Шагов = {episode_steps}")
+            print(f"Эпизод {episode}: Награда = {np.round(episode_reward, 2)}, Шагов = {episode_steps}, чекпоинт №{car.last_checkpoint}")
             
             # Построение графика каждые 50 эпизодов
             if episode % 50 == 0 and len(episode_rewards) > 1:
@@ -159,7 +165,7 @@ while running and episode < MAX_EPISODES:
             info_text = [
                 f"Эпизод: {episode}",
                 f"Шаги: {episode_steps}",
-                f"Награда: {episode_reward:.2f}",
+                f"Награда: {np.round(episode_reward, 2)}",
                 f"Скорость: {math.sqrt(car.body.velocity.x**2 + car.body.velocity.y**2):.1f}",
                 "ПРОБЕЛ - пауза, T - переключить режим, S - сохранить"
             ]

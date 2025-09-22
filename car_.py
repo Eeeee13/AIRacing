@@ -10,7 +10,7 @@ class Car:
         self.image = self.original_image
         self.rect = self.image.get_rect(center=(x, y))
         self.angle = 0
-        self.start_position = (1500, 850)
+        self.start_position = (1530, 430)
         
         # Pymunk часть
         mass = 50
@@ -36,15 +36,16 @@ class Car:
         self.wheel_base = 50     # База колес (расстояние между осями)
 
 
-        self.ray_count = 6  # Количество лучей
-        self.ray_angles = [-90, -45, 0, 45, 90, 180]  # Углы лучей относительно направления машины
+        self.ray_count = 5  # Количество лучей
+        self.ray_angles = [-90, -45, 0, 45, 90]  # Углы лучей относительно направления машины
         self.ray_distances = [0] * self.ray_count  # Расстояния до препятствий
 
 
         self.last_checkpoint = 0  # Последний пройденный чекпоинт
         self.checkpoint_positions = [  # Определи чекпоинты по трассе
-            (1500, 500),   
+            # (1500, 500),   
             (1430, 210),  
+            (1300, 210),
             (1000, 200),
             (300, 200),
             (600, 420),
@@ -297,6 +298,102 @@ class Car:
             
             self.ray_distances[i] = distance if hit else max_distance
 
+    
+    def compute_guided_reward(self):
+        reward = 0
+        
+        # 1. Награда за направление к следующему чекпоинту
+        next_checkpoint = self.checkpoint_positions[self.last_checkpoint + 1]
+        direction_to_checkpoint = self.get_direction_to(next_checkpoint)
+        angle_diff = abs(self.angle - direction_to_checkpoint)
+        
+        # Награда за правильное направление (критически важно!)
+        reward += (1 - angle_diff/180) * 2  # Максимум +2 за идеальное направление
+        
+        # # 2. Награда за плавность траектории
+        # if abs(self.steering_angle) < 10 and self.get_speed() > 1:
+        #     reward += 0.5  # Награда за прямолинейное движение на скорости
+        
+        # 3. Прогрессивная награда за приближение к чекпоинту
+        distance_to_checkpoint = self.get_distance_to(next_checkpoint)
+        reward += (1 - distance_to_checkpoint/1000) * 1  # Увеличивается по мере приближения
+        
+        
+        return reward
+    
+    def get_direction_to(self, next_cp):
+        """
+        Возвращает нормализованный вектор направления к чекпоинту.
+        Полезно для дополнительных расчетов.
+        """
+        car_pos = np.array([self.body.position.x, self.body.position.y])
+        cp_pos = np.array(next_cp)
+        direction = cp_pos - car_pos
+        if np.linalg.norm(direction) > 0:
+            return direction / np.linalg.norm(direction)
+        return np.array([0, 0])
+
+    def get_observations(self, track):
+        observations = []
+        
+        # Критически важные наблюдения для поворотов:
+        
+        # 1. Относительное положение следующего чекпоинта
+        next_cp = self.checkpoint_positions[self.last_checkpoint + 1]
+        relative_x = next_cp[0] - self.rect.x
+        relative_y = next_cp[1] - self.rect.y
+        observations.extend([relative_x, relative_y])
+        
+        # 2. Угол до чекпоинта относительно направления машины
+        angle_to_cp = self.get_angle_to(next_cp)
+        angle_diff = angle_to_cp - self.angle
+        observations.append(angle_diff)
+        
+        # # 3. Дистанции лучей (особенно боковых)
+        # ray_distances = self.cast_rays(track)  # [левый, прямой, правый]
+        # observations.extend(ray_distances)
+        
+        # 4. Текущая скорость и угол поворота
+        observations.extend([self.get_speed(), self.steering_angle])
+        
+        return np.array(observations)
+    
+    def get_angle_to(self, next_cp):
+        """
+        расчет угла до чекпоинта.
+        """
+        car_x, car_y = self.body.position.x, self.body.position.y
+        car_angle = math.degrees(self.body.angle)
+        
+        # Позиция чекпоинта
+        cp_x, cp_y = next_cp
+
+        dx = cp_x - car_x
+        dy = cp_y - car_y
+        
+        # Угол к чекпоинту в системе координат Pygame
+        # atan2 возвращает угол в радианах от оси X, нам нужно преобразовать
+        angle_to_cp = math.degrees(math.atan2(-dy, dx)) - 90
+        if angle_to_cp < 0:
+            angle_to_cp += 360
+        
+        # Разница углов
+        angle_diff = angle_to_cp - car_angle
+        
+        # Нормализуем в диапазон [-180, 180]
+        if angle_diff > 180:
+            angle_diff -= 360
+        elif angle_diff < -180:
+            angle_diff += 360
+        
+        return angle_diff
+    
+    def get_distance_to(self, next_cp):
+        """Расстояние до чекпоинта"""
+        car_pos = np.array([self.body.position.x, self.body.position.y])
+        cp_pos = np.array(next_cp)
+        return np.linalg.norm(cp_pos - car_pos)
+
 
     def draw_rays(self, surface, track):
         """Отрисовывает лучи для визуализации"""
@@ -323,15 +420,14 @@ class Car:
 
     def get_reward(self, crashed=False):
         """Вычисляет награду для агента"""
+        reward = 0
         if crashed:
-            return -200.0  # Штраф за столкновение
+            reward  -= 20.0  # Штраф за столкновение
         
-        # Награда за скорость 
-        velocity = math.sqrt(self.body.velocity.x**2 + self.body.velocity.y**2)
-        speed_reward = velocity * 0.1  # Коэффициент подбери экспериментально
+        # # Награда за скорость 
+        # velocity = math.sqrt(self.body.velocity.x**2 + self.body.velocity.y**2)
+        # speed_reward = velocity * 0.5  # Коэффициент подбери экспериментально
         
-        # Награда за прохождение чекпоинтов
-        checkpoint_reward = 0
         current_pos = self.body.position
         
         # Проверяем прохождение следующего чекпоинта
@@ -341,19 +437,19 @@ class Car:
         
         if distance_to_checkpoint < 100:  # Если близко к чекпоинту
             self.last_checkpoint += 1
-            checkpoint_reward = 100.0  # Большая награда за чекпоинт
+            reward += 10.0  # Большая награда за чекпоинт
             
             # Если прошли полный круг
             if self.last_checkpoint % len(self.checkpoint_positions) == 0:
                 lap_time = pygame.time.get_ticks() - self.lap_start_time
                 if lap_time < self.best_lap_time:
                     self.best_lap_time = lap_time
-                    checkpoint_reward += 500.0  # Бонус за лучшее время
+                    reward += 500.0  # Бонус за лучшее время
                 self.lap_start_time = pygame.time.get_ticks()
         
-        # Штраф за слишком медленное движение
-        if velocity < 1.0:
-            speed_reward -= 0.2
+        # # Штраф за слишком медленное движение
+        # if velocity < 1.0:
+        #     speed_reward -= 0.5
         
-        return speed_reward + checkpoint_reward
+        return reward
 

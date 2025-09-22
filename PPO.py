@@ -6,7 +6,7 @@ import numpy as np
 from torch.distributions import Normal
 
 class PPONetwork(nn.Module):
-    def __init__(self, state_size=6, action_size=2, hidden_size=256):
+    def __init__(self, state_size=10, action_size=2, hidden_size=512):
         super(PPONetwork, self).__init__()
         
         # Общие слои
@@ -38,8 +38,8 @@ class PPONetwork(nn.Module):
         return action_mean, action_std, value
 
 class PPOAgent:
-    def __init__(self, state_size=6, action_size=2, lr=3e-4, gamma=0.99, eps_clip=0.2, 
-                 k_epochs=4, entropy_coef=0.1):
+    def __init__(self, state_size=10, action_size=2, lr=1e-4, gamma=0.99, eps_clip=0.3, 
+                 k_epochs=2, entropy_coef=0.1):
         
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.network = PPONetwork(state_size, action_size).to(self.device)
