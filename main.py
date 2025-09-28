@@ -7,7 +7,10 @@ import math
 import matplotlib.pyplot as plt
 from car_ import Car 
 from enviroment import Track
-from PPO import PPOAgent
+
+import gymnasium as gym
+from stable_baselines3 import PPO
+
 
 pygame.init()
 space = pymunk.Space()
@@ -24,14 +27,15 @@ track.create_mask_from_color(background)
 car = Car(400, 300, space)
 
 # Инициализация PPO агента
-agent = PPOAgent(state_size=10, action_size=2, lr=1e-4)
+# agent = PPOAgent(state_size=10, action_size=2, lr=1e-4)
+agent = PPO.load("racing_models/best_model.zip")
 
 # Параметры тренировки
 TRAINING_MODE = True  # Переключатель: True для тренировки, False для игры человеком
 RENDER_TRAINING = True  # Показывать ли визуализацию во время тренировки
 UPDATE_FREQUENCY = 10000  # Частота обновления агента (каждые N шагов)
 MAX_EPISODES = 1000
-MAX_STEPS_PER_EPISODE = 10000
+MAX_STEPS_PER_EPISODE = 2048
 
 # Статистика
 episode_rewards = []
@@ -60,12 +64,12 @@ def apply_action_to_car(action, car):
     car.steering_angle = max(-60, min(60, steering_angle))  # Ограничиваем угол
     car.apply_steering_force()
 
-# Попытка загрузить существующую модель
-try:
-    agent.load('ppo_car_model.pth')
-    print("Модель загружена!")
-except:
-    print("Модель не найдена, начинаем с нуля")
+# # Попытка загрузить существующую модель
+# try:
+#     agent.load('ppo_car_model.pth')
+#     print("Модель загружена!")
+# except:
+#     print("Модель не найдена, начинаем с нуля")
 
 running = True
 paused = False
@@ -80,25 +84,27 @@ while running and episode < MAX_EPISODES:
             elif event.key == pygame.K_t:
                 TRAINING_MODE = not TRAINING_MODE
                 print(f"Режим: {'Тренировка' if TRAINING_MODE else 'Человек'}")
-            elif event.key == pygame.K_s:
-                agent.save('ppo_car_model.pth')
-                print("Модель сохранена!")
+            # elif event.key == pygame.K_s:
+            #     agent.save('ppo_car_model.pth')
+            #     print("Модель сохранена!")
     
     if paused:
         continue
     
     # Получаем состояние (расстояния лучей)
     car.cast_rays(track)
-    dist = normalize_ray_distances(car.ray_distances)
+    dist = car.ray_distances
     obs = car.get_observations(track)
     
     state= np.concatenate((obs,  dist) )
+
+    state = car.normalize_state(state)
     # print("state: ", state, "len: ", len(state))
     # print("input:" , input, "len: " , len(input))
     
     if TRAINING_MODE:
         # Получаем действие от агента
-        action, log_prob, value = agent.get_action(state)
+        action, _state = agent.predict(state, deterministic=True)
         apply_action_to_car(action, car)
         
         # ВАЖНО: обновляем графику машины после применения действий
@@ -115,7 +121,8 @@ while running and episode < MAX_EPISODES:
     # Проверяем столкновение и вычисляем награду
     crashed = track.check_collision(car.mask, (car.rect.x, car.rect.y))
     reward = car.get_reward(crashed=crashed)
-    # reward += car.compute_guided_reward()
+    reward += car.compute_guided_reward()
+    # print("reward type: ", type(reward), "reward1 type: ", type(reward1), "reward1: ", reward1)
     episode_reward += reward
     episode_steps += 1
     step_count += 1
@@ -123,14 +130,14 @@ while running and episode < MAX_EPISODES:
     # Определяем конец эпизода
     done = crashed or episode_steps >= MAX_STEPS_PER_EPISODE
     
-    if TRAINING_MODE:
-        # Сохраняем переход в буфере агента
-        agent.store_transition(state, action, reward, log_prob, value, done)
+    # if TRAINING_MODE:
+    #     # Сохраняем переход в буфере агента
+    #     agent.store_transition(state, action, reward, log_prob, value, done, raw_action)
         
-        # Обновляем агента периодически
-        if step_count % UPDATE_FREQUENCY == 0:
-            print(f"Обновление агента на шаге {step_count}")
-            agent.update()
+    #     # Обновляем агента периодически
+    #     if step_count % UPDATE_FREQUENCY == 0:
+    #         print(f"Обновление агента на шаге {step_count}")
+    #         agent.update()
     
     # Если эпизод завершен
     if done:
@@ -150,7 +157,7 @@ while running and episode < MAX_EPISODES:
                 plt.close()
         
         # Сброс для нового эпизода
-        car.reset_to_start()
+        car.reset()
         episode_reward = 0
         episode_steps = 0
         episode += 1
@@ -180,18 +187,18 @@ while running and episode < MAX_EPISODES:
             text_surface = font.render(text, True, (255, 255, 255))
             screen.blit(text_surface, (10, 10 + i * 30))
         
-        car.draw_steering_info(screen, font)
+        # car.draw_steering_info(screen, font)
         car.draw_rays(screen, track)
         
         pygame.display.flip()
     
     # Ограничиваем FPS только если рендеринг включен
     if not TRAINING_MODE or RENDER_TRAINING:
-        clock.tick(60)
+        clock.tick(120)
 
 # Финальное сохранение модели
 if TRAINING_MODE:
-    agent.save('ppo_car_model_final.pth')
+    # agent.save('ppo_car_model_final.pth')
     
     # Построение финального графика
     plt.figure(figsize=(12, 8))

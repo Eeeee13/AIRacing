@@ -13,7 +13,7 @@ class Car:
         self.start_position = (1530, 430)
         
         # Pymunk часть
-        mass = 50
+        mass = 40
         size = (self.rect.width * 0.8, self.rect.height * 0.6)
         moment = pymunk.moment_for_box(mass, size)
         
@@ -31,9 +31,10 @@ class Car:
         
         # Настройки управления
         self.steering_angle = 0  # Текущий угол поворота руля
-        self.max_steering = 60   # Максимальный угол поворота (градусы)
-        self.steering_speed = 10  # Скорость поворота руля
+        self.max_steering = 80   # Максимальный угол поворота (градусы)
+        self.steering_speed = 20  # Скорость поворота руля
         self.wheel_base = 50     # База колес (расстояние между осями)
+        self.max_ray_distance = 300  # Максимальная длина луча
 
 
         self.ray_count = 5  # Количество лучей
@@ -47,6 +48,8 @@ class Car:
             (1430, 210),  
             (1300, 210),
             (1000, 200),
+            (750, 90),
+            (530, 171),
             (300, 200),
             (600, 420),
             (600, 630),
@@ -94,7 +97,7 @@ class Car:
         self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect(center=self.rect.center)
     
-    def reset_to_start(self):
+    def reset(self):
         """Перемещает машину в стартовую позицию и сбрасывает состояние"""
         # Сбрасываем физическое тело
         self.body.position = self.start_position
@@ -120,14 +123,20 @@ class Car:
 ###______________Reward___________####
     def compute_guided_reward(self):
         reward = 0
+        if self.last_checkpoint + 1 == len(self.checkpoint_positions):
+            next_checkpoint = self.checkpoint_positions[0]
+        else:
+            next_checkpoint = self.checkpoint_positions[self.last_checkpoint + 1]
         
-        # 1. Награда за направление к следующему чекпоинту
-        next_checkpoint = self.checkpoint_positions[self.last_checkpoint + 1]
-        direction_to_checkpoint = self.get_direction_to(next_checkpoint)
-        angle_diff = abs(self.angle - direction_to_checkpoint)
+        # # 1. Награда за направление к следующему чекпоинту
+        # next_checkpoint = self.checkpoint_positions[self.last_checkpoint + 1]
+        # direction_to_checkpoint = self.get_direction_to(next_checkpoint)
+        # angle_diff = abs(self.angle - direction_to_checkpoint)
+        # print("angle_diff: ",angle_diff)
         
-        # Награда за правильное направление (критически важно!)
-        reward += (1 - angle_diff/180) * 2  # Максимум +2 за идеальное направление
+        # # Награда за правильное направление (критически важно!)
+        # reward += (1 - angle_diff/180) * 2  # Максимум +2 за идеальное направление
+        # print("reward 1:", reward)
         
         # # 2. Награда за плавность траектории
         # if abs(self.steering_angle) < 10 and self.get_speed() > 1:
@@ -135,20 +144,24 @@ class Car:
         
         # 3. Прогрессивная награда за приближение к чекпоинту
         distance_to_checkpoint = self.get_distance_to(next_checkpoint)
-        reward += (1 - distance_to_checkpoint/1000) * 1  # Увеличивается по мере приближения
-        
+        reward += (1 - distance_to_checkpoint/1000) * 0.2  # Увеличивается по мере приближения
+        # print("reward 2:", reward)
         
         return reward
     
     def get_reward(self, crashed=False):
         """Вычисляет награду для агента"""
+        speed = self.get_speed()
+        forward_speed = self.get_forward_speed()
         reward = 0
         if crashed:
-            reward  -= 20.0  # Штраф за столкновение
-        
-        # # Награда за скорость 
-        # velocity = math.sqrt(self.body.velocity.x**2 + self.body.velocity.y**2)
-        # speed_reward = velocity * 0.5  # Коэффициент подбери экспериментально
+            reward  -= 10.0  # Штраф за столкновение
+
+        # 1. ШТРАФ за движение назад
+        if forward_speed < -0.5:  # Движение назад с заметной скоростью
+            reward += forward_speed * 2  # Умножаем на 2 для усиления штрафа
+            # Дополнительный фиксированный штраф
+            reward -= 1.0
         
         current_pos = self.body.position
         
@@ -159,7 +172,7 @@ class Car:
         
         if distance_to_checkpoint < 100:  # Если близко к чекпоинту
             self.last_checkpoint += 1
-            reward += 10.0  # Большая награда за чекпоинт
+            reward += 20.0  # Большая награда за чекпоинт
             
             # Если прошли полный круг
             if self.last_checkpoint % len(self.checkpoint_positions) == 0:
@@ -169,9 +182,14 @@ class Car:
                     reward += 500.0  # Бонус за лучшее время
                 self.lap_start_time = pygame.time.get_ticks()
         
-        # # Штраф за слишком медленное движение
-        # if velocity < 1.0:
-        #     speed_reward -= 0.5
+        # 3. Награда за СКОРОСТЬ - только вперед
+        if forward_speed > 0:
+            pass
+            # reward += forward_speed * 0.01
+        else:
+            # Штраф за нулевую или отрицательную скорость
+            # print("oh, no no no")
+            reward -= 0.3
         
         return reward
 
@@ -182,7 +200,10 @@ class Car:
         # Критически важные наблюдения для поворотов:
         
         # 1. Относительное положение следующего чекпоинта
-        next_cp = self.checkpoint_positions[self.last_checkpoint + 1]
+        if self.last_checkpoint + 1 == len(self.checkpoint_positions):
+            next_cp = self.checkpoint_positions[0]
+        else:
+            next_cp = self.checkpoint_positions[self.last_checkpoint + 1]
         relative_x = next_cp[0] - self.rect.x
         relative_y = next_cp[1] - self.rect.y
         observations.extend([relative_x, relative_y])
@@ -214,11 +235,11 @@ class Car:
             ]
             
             # Выпускаем луч шаг за шагом
-            max_distance = 300  # Максимальная длина луча
+
             distance = 0
             hit = False
             
-            for step in range(1, max_distance):
+            for step in range(1, self.max_ray_distance):
                 # Текущая позиция на луче
                 pos = [
                     center[0] + ray_dir[0] * step,
@@ -237,9 +258,8 @@ class Car:
                 else:
                     break
             
-            self.ray_distances[i] = distance if hit else max_distance
+            self.ray_distances[i] = distance if hit else self.max_ray_distance
       
-
 
 ###_______________Helpers______________#####
     
@@ -312,7 +332,50 @@ class Car:
         forward_vec = self.get_forward_vec()
         return np.dot([self.body.velocity.x, self.body.velocity.y], forward_vec)
         
+    def get_speed(self):
+        """Получить текущую скорость"""
+        velocity = self.body.velocity
+        return math.sqrt(velocity.x**2 + velocity.y**2)
 
+
+    def normalize_state(self, state):
+        """Нормализует состояния для стабильности обучения"""
+        state = np.array(state, dtype=np.float32)
+        
+        # Проверяем корректную длину состояния
+        expected_length = 10  # 5 наблюдений + 5 лучей
+        if len(state) != expected_length:
+            print(f"Предупреждение: ожидалось {expected_length} элементов состояния, получено {len(state)}")
+            # Дополняем нулями если не хватает элементов
+            if len(state) < expected_length:
+                state = np.pad(state, (0, expected_length - len(state)), 'constant')
+            else:
+                state = state[:expected_length]
+        
+        # Нормализация каждого компонента состояния
+        normalized_state = state.copy()
+        
+        # Компоненты наблюдений (первые 5 элементов)
+        if len(state) >= 5:
+            # Относительные координаты чекпоинта (элементы 0, 1)
+            normalized_state[0] = np.clip(state[0] / 1000.0, -5.0, 5.0)  # relative_x
+            normalized_state[1] = np.clip(state[1] / 1000.0, -5.0, 5.0)  # relative_y
+            
+            # Угол до чекпоинта (элемент 2)
+            normalized_state[2] = np.clip(state[2] / 180.0, -2.0, 2.0)   # angle_diff
+            
+            # Скорость (элемент 3)
+            normalized_state[3] = np.clip(state[3] / 100.0, -2.0, 2.0)   # speed
+            
+            # Угол поворота (элемент 4)
+            normalized_state[4] = np.clip(state[4] / self.max_steering, -1.0, 1.0)  # steering_angle
+        
+        # Расстояния лучей (элементы 5-9)
+        if len(state) >= 10:
+            for i in range(5, 10):
+                normalized_state[i] = np.clip(state[i] / self.max_ray_distance, 0.0, 1.0)
+        
+        return normalized_state.astype(np.float32)
 ####______________debug_info__________#######
 
     def draw_rays(self, surface, track):
@@ -344,7 +407,6 @@ class Car:
         surface.blit(speed_text, (10, 10))
         surface.blit(steering_text, (10, 40))
 
-
 #######____________Physics_________________##########
 
     def update_steering(self, keys):
@@ -369,16 +431,15 @@ class Car:
         
         # Поворачиваем только если машина движется
         if abs(speed) > 1.0:
-            # Рассчитываем силу поворота пропорционально скорости
-            steering_power = 0.01 # Мощность поворота
+            steering_power = 0.015
             turn_force = speed * steering_power * self.steering_angle
             
             nose_offset = 30  # Смещение к передней части
             
            
             self.body.apply_force_at_local_point(
-                (turn_force, 0),  # Сила в боковом направлении
-                (0, nose_offset)  # Точка приложения - ближе к носу
+                (turn_force, 0),  
+                (0, nose_offset)  
             )
             # Дополнительно можно применить крутящий момент для более резкого поворота
             extra_torque = turn_force * 200  # Дополнительный момент
@@ -389,13 +450,9 @@ class Car:
         
     def apply_lateral_friction(self):
         """Применение бокового трения для реалистичного поворота"""
-        # Получаем вектор направления движения
         forward_vec = self.get_forward_vec()
-        # Получаем боковой вектор (перпендикулярно направлению)
         lateral_vec = [-forward_vec[1], forward_vec[0]]
-        # Проекция скорости на боковое направление
         lateral_velocity = np.dot([self.body.velocity.x, self.body.velocity.y], lateral_vec)
-        # Применяем боковое трение
         lateral_friction = -lateral_velocity * 0.4
         self.body.velocity = (
             self.body.velocity.x + lateral_vec[0] * lateral_friction,
@@ -404,8 +461,8 @@ class Car:
     
     def apply_engine_force(self, throttle):
         """Применение силы двигателя"""
-        forward_vec = self.get_forward_vec()
-        force = 9000 * throttle
+        # forward_vec = self.get_forward_vec()
+        force = 7000 * throttle
         if self.get_speed() < 0:
             # self.body.apply_force_at_local_point((0, -force), (0, -30))
             pass
