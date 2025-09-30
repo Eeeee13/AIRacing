@@ -131,6 +131,11 @@ class RacingEnv(gym.Env):
         if self.render_mode != "human" or self.screen is None:
             return
         
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.close()
+
+        
         # Очищаем экран и рисуем фон
         self.screen.blit(self.background, (0, 0))
         
@@ -139,6 +144,8 @@ class RacingEnv(gym.Env):
         
         # Рисуем лучи для отладки
         self.car.draw_rays(self.screen, self.track)
+
+        self.car.draw_checkpoints(self.screen)
         
         # Отображаем информацию
         if self.font:

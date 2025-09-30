@@ -161,7 +161,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Обучение PPO агента для гонок")
     parser.add_argument("--mode", choices=["train", "test", "continue"], 
-                       default="train", help="Режим: train, test или continue")
+                       default="continue", help="Режим: train, test или continue")
     parser.add_argument("--model_path", default="./racing_models/best_model", 
                        help="Путь к модели для тестирования или продолжения обучения")
     parser.add_argument("--steps", type=int, default=100000, 

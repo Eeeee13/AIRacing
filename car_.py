@@ -10,7 +10,7 @@ class Car:
         self.image = self.original_image
         self.rect = self.image.get_rect(center=(x, y))
         self.angle = 0
-        self.start_position = (1530, 430)
+        
         
         # Pymunk часть
         mass = 40
@@ -44,19 +44,22 @@ class Car:
 
         self.last_checkpoint = 0  # Последний пройденный чекпоинт
         self.checkpoint_positions = [  # Определи чекпоинты по трассе
-            # (1500, 500),   
+            (1500, 800),   
             (1430, 210),  
             (1300, 210),
             (1000, 200),
             (750, 90),
-            (530, 171),
-            (300, 200),
-            (600, 420),
-            (600, 630),
-            (800, 860)
+            (500, 180),
+            (160, 300),
+            (520, 440),
+            (1020, 520),
+            (610, 670),
+            (175, 750),
+            (800, 862)
         ]
         self.lap_start_time = 0
         self.best_lap_time = float('inf')
+        self.start_position = self.checkpoint_positions[0]
 
         
         space.add(self.body, self.shape)
@@ -123,11 +126,6 @@ class Car:
 ###______________Reward___________####
     def compute_guided_reward(self):
         reward = 0
-        if self.last_checkpoint + 1 == len(self.checkpoint_positions):
-            next_checkpoint = self.checkpoint_positions[0]
-        else:
-            next_checkpoint = self.checkpoint_positions[self.last_checkpoint + 1]
-        
         # # 1. Награда за направление к следующему чекпоинту
         # next_checkpoint = self.checkpoint_positions[self.last_checkpoint + 1]
         # direction_to_checkpoint = self.get_direction_to(next_checkpoint)
@@ -142,10 +140,10 @@ class Car:
         # if abs(self.steering_angle) < 10 and self.get_speed() > 1:
         #     reward += 0.5  # Награда за прямолинейное движение на скорости
         
-        # 3. Прогрессивная награда за приближение к чекпоинту
-        distance_to_checkpoint = self.get_distance_to(next_checkpoint)
-        reward += (1 - distance_to_checkpoint/1000) * 0.2  # Увеличивается по мере приближения
-        # print("reward 2:", reward)
+        # # 3. Прогрессивная награда за приближение к чекпоинту
+        # distance_to_checkpoint = self.get_distance_to(next_checkpoint)
+        # reward += (1 - distance_to_checkpoint/1000) * 0.2  # Увеличивается по мере приближения
+        # # print("reward 2:", reward)
         
         return reward
     
@@ -171,11 +169,15 @@ class Car:
                                         (current_pos.y - next_checkpoint[1])**2)
         
         if distance_to_checkpoint < 100:  # Если близко к чекпоинту
-            self.last_checkpoint += 1
+            if self.last_checkpoint +1 == len(self.checkpoint_positions):
+                self.last_checkpoint = 0
+            else:
+                self.last_checkpoint += 1
             reward += 20.0  # Большая награда за чекпоинт
             
             # Если прошли полный круг
-            if self.last_checkpoint % len(self.checkpoint_positions) == 0:
+            if self.last_checkpoint % (len(self.checkpoint_positions)) == 0:
+                reward += 100
                 lap_time = pygame.time.get_ticks() - self.lap_start_time
                 if lap_time < self.best_lap_time:
                     self.best_lap_time = lap_time
@@ -184,12 +186,14 @@ class Car:
         
         # 3. Награда за СКОРОСТЬ - только вперед
         if forward_speed > 0:
-            pass
-            # reward += forward_speed * 0.01
+            # pass
+            reward += forward_speed * 0.2
+        elif forward_speed < 1:
+            reward -= 0.5
         else:
             # Штраф за нулевую или отрицательную скорость
             # print("oh, no no no")
-            reward -= 0.3
+            reward -= 0.6
         
         return reward
 
@@ -200,10 +204,7 @@ class Car:
         # Критически важные наблюдения для поворотов:
         
         # 1. Относительное положение следующего чекпоинта
-        if self.last_checkpoint + 1 == len(self.checkpoint_positions):
-            next_cp = self.checkpoint_positions[0]
-        else:
-            next_cp = self.checkpoint_positions[self.last_checkpoint + 1]
+        next_cp = self.get_next_cp()
         relative_x = next_cp[0] - self.rect.x
         relative_y = next_cp[1] - self.rect.y
         observations.extend([relative_x, relative_y])
@@ -337,6 +338,16 @@ class Car:
         velocity = self.body.velocity
         return math.sqrt(velocity.x**2 + velocity.y**2)
 
+    def get_next_cp(self):
+        try:
+            if self.last_checkpoint - 1 == len(self.checkpoint_positions):
+                next_checkpoint = self.checkpoint_positions[0]
+            else:
+                next_checkpoint = self.checkpoint_positions[self.last_checkpoint + 1]
+        except:
+            next_checkpoint = self.checkpoint_positions[0]
+        
+        return next_checkpoint
 
     def normalize_state(self, state):
         """Нормализует состояния для стабильности обучения"""
@@ -406,6 +417,13 @@ class Car:
         steering_text = font.render(f"Steering: {self.steering_angle:.1f}°", True, (255, 255, 255))
         surface.blit(speed_text, (10, 10))
         surface.blit(steering_text, (10, 40))
+
+    def draw_checkpoints(self, screen):
+        cp = self.checkpoint_positions[self.last_checkpoint]
+        pygame.draw.circle(screen, "red", (cp[0], cp[1]), 5) 
+        next_cp = self.get_next_cp()
+        pygame.draw.circle(screen, "green", (next_cp[0], next_cp[1]), 5) 
+
 
 #######____________Physics_________________##########
 
