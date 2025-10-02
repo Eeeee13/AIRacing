@@ -20,5 +20,4 @@ For now, while project in unpredictability state I do not recommend to clone thi
 7) An attempt was made to implement `PPO`. The opportunity to control the car was provided. An array of 6 distances was supplied to the input, and an array of two values (-1, 1) for steering and (-1, 1) for gas was obtained at the output.
 8) Further actions were aimed at setting up hyperparameters. Initially, the award was given for lap speed, best time, and a collision penalty. By the end of the training, the agent began to behave very conservatively, moving slowly and making little progress. Then the adjustment of the remuneration system began.
 9) After several unsuccessful attempts to change the logic of the reward system, adjust hyperparameters and the number of layers in the neural network, it was decided to study the PPO architecture more deeply.
-
-
+10) The environment was wrapped in gym env, and stable_baselines3.PPO was used for training, then the rewards were adjusted. As a result, we came to the conclusion that we need to do 2 stages of training. 1. train to follow the checkpoint and drive along the highway, there are no rewards or penalties for speed. 2 remove the reward for approaching checkpoints, set the minimum speed and reward for fast driving.
